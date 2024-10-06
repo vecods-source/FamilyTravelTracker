@@ -19,20 +19,15 @@ app.use(express.static("public"));
 dp.connect()
 
 let arr2 = [];
+let visited_countries;
 
 async function refreshTable(){
-  await dp.query("SELECT country_code FROM visited_country",(err,res)=>{
+  await dp.query("SELECT * FROM visited_country",(err,res)=>{
     if (err){
       console.log("error excuting the query "+err.stack);
     }
     else{
-      const arr = res.rows
-      arr2 = [];
-      arr.forEach(
-        (code)=>{
-          arr2.push(code.country_code)
-        }
-      );
+      visited_countries = res.rows;
     }
   });
 }
@@ -49,15 +44,48 @@ await dp.query("SELECT country_code, country_name FROM countries",(err,res)=>{
 })
 
 
+let users = []
+let CurrId;
+await dp.query("SELECT * FROM users",(err,res)=>{
+  if(err) 
+  {                                                                             //getting users data from the pgTable
+    console.log("error excuing the query",err.stack)
+  }
+  else
+  {
+    users = res.rows;
+    CurrId = users[0].id
+    console.log(CurrId);
+  }
+});
+
+
+
 app.get("/", async (req, res) => {
+  let CurrUserList = [];
+  console.log(`cuurent id is ${CurrId}`);
+  console.log(visited_countries);
+  visited_countries.forEach(country => {
+    console.log(`${country.user_id} is ${CurrId}`);
+    if(country.user_id == CurrId){
+      console.log("HELLO WORLD");
+      CurrUserList.push(country.country_code);
+    }
+  });
+
+  let CurrentUserColor = users.find((user)=> user.id == CurrId);
+  console.log("This below is the country list full feild");
+
+  console.log(CurrUserList);
   await
   res.render("index.ejs",{
-    countries: arr2,
-    total: arr2.length
+    countries: CurrUserList,
+    total: CurrUserList.length,
+    users: users,
+    color: CurrentUserColor.color
   });
 });
 
-let newCountriesCode = [];
 
 async function AddCountry(cCode){
   await dp.query("INSERT INTO visited_country (country_code) VALUES ($1)",[cCode]);
@@ -79,14 +107,22 @@ app.post("/add", async(req,res)=>{
   else{
     console.log("no such country found");
     res.render("index.ejs", {
-      countries: arr2,
-      total: arr2.length,
-      error: "Country do not exist, try again."
+      countries: visited_countries.country_code,
+      total: visited_countries.length,
+      error: "Country do not exist, try again.",
     });
   }
 
   
 })
+
+
+
+app.post("/user",(req,res)=>{
+  CurrId = req.body.user;
+  res.redirect("/")
+})
+
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
