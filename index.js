@@ -43,21 +43,26 @@ await dp.query("SELECT country_code, country_name FROM countries",(err,res)=>{
   }
 })
 
-
-let users = []
 let CurrId;
-await dp.query("SELECT * FROM users",(err,res)=>{
-  if(err) 
-  {                                                                             //getting users data from the pgTable
-    console.log("error excuing the query",err.stack)
-  }
-  else
-  {
-    users = res.rows;
-    CurrId = users[0].id
-    console.log(CurrId);
-  }
-});
+let users = [];
+
+async function refreshUserTable()
+{
+  await dp.query("SELECT * FROM users",(err,res)=>{
+    if(err) 
+    {                                                                             //getting users data from the pgTable
+      console.log("error excuing the query",err.stack)
+    }
+    else
+    {
+      users = res.rows;
+      CurrId = users[0].id        //probelm 1 how could the CurrId reassigned when refreshing the table SOLVED AS THE USER WILL GET BACK TO '/' AFTER ADDING NEW USER
+      console.log(CurrId);
+    }
+  });
+}
+
+refreshUserTable();
 
 
 
@@ -73,6 +78,7 @@ app.get("/", async (req, res) => {
     }
   });
 
+
   let CurrentUserColor = users.find((user)=> user.id == CurrId);
   console.log("This below is the country list full feild");
 
@@ -87,8 +93,8 @@ app.get("/", async (req, res) => {
 });
 
 
-async function AddCountry(cCode){
-  await dp.query("INSERT INTO visited_country (country_code) VALUES ($1)",[cCode]);
+async function AddCountry(cCode,UserId){
+  await dp.query("INSERT INTO visited_country (country_code,user_id) VALUES ($1,$2)",[cCode,UserId]);
 
 }
 
@@ -96,10 +102,10 @@ app.post("/add", async(req,res)=>{
   const inputtedCountry = req.body.country;
 
   const matchedCountry = allCountries.find((country) => country.country_name === inputtedCountry);
-  
+  const tem1 = req.body.user
 
   if (matchedCountry) {
-    AddCountry(matchedCountry.country_code);
+    AddCountry(matchedCountry.country_code,CurrId);
     refreshTable();
     console.log(matchedCountry.country_code);
     res.redirect("/");
@@ -119,10 +125,24 @@ app.post("/add", async(req,res)=>{
 
 
 app.post("/user",(req,res)=>{
-  CurrId = req.body.user;
-  res.redirect("/")
+  if(req.body.add == "new"){
+    res.render("new.ejs");
+  }else
+  {
+    CurrId = req.body.user;
+    console.log("Current from prfile userId "+ CurrId);
+    res.redirect("/");
+  }
 })
 
+app.post("/new",async (req,res)=>{
+  let username = req.body.name;
+  let usernameColor = req.body.color;
+  console.log(`username: ${username} color: ${usernameColor}`);
+  await dp.query("INSERT INTO users (username,color) VALUES ($1,$2)",[username,usernameColor]);
+  refreshUserTable();
+  res.redirect("/")
+})
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
